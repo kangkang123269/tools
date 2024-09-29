@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { Http } from "./http/index";
 import { ref, onMounted, watch, computed } from "vue";
-import { formatSeconds } from "./utils/time";
+
+import { Http } from "./http/index";
+import { formatSeconds, downloadAudio, encryptedId, getQueryParam } from "./utils";
+
+import down_icon from "@/assets/down.svg"
+import play_icon from "@/assets/play.svg"
+import pause_icon from "@/assets/pause.svg"
+import next_icon from "@/assets/next.svg"
 
 const audio = new Audio();
 
@@ -14,7 +20,12 @@ interface MuisicDataType {
   url: string;
 }
 
-const data = ref<MuisicDataType>({});
+const data = ref<MuisicDataType>({
+  artistsname: "",
+  name: "",
+  picurl: "",
+  url: ""
+});
 const loading = ref(true);
 
 const getData = () => {
@@ -30,16 +41,6 @@ const getData = () => {
     });
 };
 
-const play = () => {
-  audio.play();
-  played.value = true;
-};
-
-const pause = () => {
-  audio.pause();
-  played.value = false;
-};
-
 const info = ref({
   duration: 0,
   currentTime: 0,
@@ -50,6 +51,7 @@ watch(
   () => {
     if (data.value.url) {
       audio.src = data.value.url;
+      audio.preload = "auto";
       audio.addEventListener("loadeddata", () => {
         console.log("duation", audio.duration);
         info.value.duration = audio.duration;
@@ -91,14 +93,41 @@ const change = (val: number) => {
   info.value.currentTime = val
 }
 
+// 播放
+function play() {
+  audio.play();
+  played.value = true;
+};
+
+// 暂停
+function pause() {
+  audio.pause();
+  played.value = false;
+};
+
+// 下一首
 const next = () => {
   getData().then(() => {
     play();
   });
 }
 
+// 下载
+const down = () => {
+  // 下载音频
+  downloadAudio(data.value.url, data.value.name + '-' + data.value.artistsname);
+};
+
 onMounted(() => {
   getData();
+  audio.addEventListener('progress', () => {
+    const buffered = audio.buffered;
+    if (buffered.length) {
+        const loaded = buffered.end(buffered.length - 1);
+        const total = audio.duration;
+        console.log(`已加载： ${(loaded / total * 100).toFixed(2)}%`);
+    }
+  });
 });
 </script>
 
@@ -110,7 +139,7 @@ onMounted(() => {
     element-loading-svg-view-box="-10, -10, 50, 50"
     element-loading-background="rgba(122, 122, 122, 0.8)"
   >
-    <img :src="data.picurl" alt="" />
+    <img :src="data.picurl" class="picurl" alt="" />
     <div class="info">
       <div>{{ data.name }}</div>
       <div>{{ data.artistsname }}</div>
@@ -122,16 +151,14 @@ onMounted(() => {
     </div>
 
     <div class="btns">
-      <div class="btn" @click="played ? pause() : play()">
-        {{ played ? "暂停" : "播放" }}
-      </div>
-      <div class="line"></div>
-      <div class="btn" @click="next">下一首</div>
+      <img :src="played ? pause_icon : play_icon" @click="played ? pause() : play()" alt="">
+      <img :src="next_icon" @click="next" alt="">
+      <img :src="down_icon" v-copy="data.url" alt="">
     </div>
   </div>
 </template>
 
-<style>
+<style lang="less">
 .progress {
   display: flex;
   align-items: center;
@@ -155,16 +182,20 @@ body {
   background: rgba(0, 0, 0, 0.9);
   color: #fff;
 }
-img {
+.picurl {
   position: absolute;
   left: 0;
   top: 0;
-  /* 
- bottom: 0;
- margin: auto; */
-  /* z-index: -1; */
   width: 100vw;
-  /* height: 100vh; */
+}
+audio {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  margin: auto;
+  text-align: center;
 }
 .info {
   position: absolute;
@@ -177,13 +208,18 @@ img {
   bottom: 50px;
   left: 0;
   right: 0;
-  width: 200px;
   /* left: 20%; */
+  width: 80%;
   margin: auto;
   text-align: center;
-  border: 1px solid #fff;
-  height: 100px;
+  display: flex;
   line-height: 50px;
+  align-items: center;
+  justify-content: space-around;
+  img {
+    width: 40px;
+    height: 40px;
+  }
 }
 .line {
   width: 100%;
